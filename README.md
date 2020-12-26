@@ -8,4 +8,5 @@ Steps:
 ## Install
 1. Run ``docker-compose up -d`` in the folder that contains docker-compose.yml
 2. Create ``config.php`` file from ``config-sample.php`` for testing.
+3. With localhost, access ``http://0.0.0.0:8080/`` by default
 3. Try it!
