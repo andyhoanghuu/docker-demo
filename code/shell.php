@@ -23,30 +23,30 @@ try {
 		];
 
 		//TODO: check site is working?
-		$is404 = is_404( $credentials['demo_url'] );
+		$is404 = is_404($credentials['demo_url']);
 		if (! $is404) {
 			// Redirect to demo URL.
 			header('Location: ' . DEMO_URL);
 			exit();
 		}
-
-		// SOCKS5 connection info
-		$fsock = @fsockopen($credentials['host'], 22, $errno, $errstr, 1);
-		if (!$fsock) {
-			throw new Exception($errstr);
-		}
+		//
+		// // SOCKS5 connection info
+		// $fsock = @fsockopen($credentials['host'], 22, $errno, $errstr, 1);
+		// if (!$fsock) {
+		// 	throw new Exception($errstr);
+		// }
 
 		// Init.
 		$lofdemo = new Docker_Demo( $credentials );
 
 		// Create and write files into server.
 		// TODO: check permission
-		$lofdemo->createRegisterCronFile(PATH);
-		$lofdemo->createActionCronFile(PATH);
+		$lofdemo->createRegisterCronFile();
+		$lofdemo->createActionCronFile();
 
 		// Run cron sh file and start docker.
 		$ssh = $lofdemo->getSsh();
-		$ssh->exec('cd '.PATH.' && pwd && sh stop.sh && ' . COMMAND_UP);
+		$ssh->exec('cd '.PATH.' && pwd && chmod -x stop.sh && sh stop.sh && ' . COMMAND_UP);
 
 		// Redirect to demo URL.
 		header('Location: ' . DEMO_URL);
@@ -149,18 +149,15 @@ class Docker_Demo {
 	 *
 	 * @param string $path
 	 */
-	public function createRegisterCronFile($path)
+	public function createRegisterCronFile()
 	{
-		$content = '#write out current crontab' ."\n";
-		$content .= 'crontab -l > lofstopdemo' . "\n";
-		$content .= '#echo new cron into cron file' . "\n";
-		$content .= 'echo "*/'.LIFE_TIME.' * * * * sh '.PATH.'/stop-docker.sh" >> lofstopdemo' . "\n";
-		$content .= '#install new cron file' . "\n";
-		$content .= 'crontab lofstopdemo' . "\n";
-		$content .= '#rm mycron' . "\n";
-		$content .= 'rm lofstopdemo';
-
-		$this->save_file( $path, 'stop.sh', $content );
+		$file = $this->path . '/' . 'stop.sh';
+		$command = 'echo "crontab -l > lofstopdemo" >> ' . $file . ' && ';
+		$command .= 'echo \'echo "*/' . $this->life_time . ' * * * * sh ' . $this->path . '/stop-docker.sh" >> lofstopdemo\' >> ' . $file . ' && ';
+		$command .= 'echo "crontab lofstopdemo" >> ' . $file . ' && ';
+		$command .= 'echo "rm lofstopdemo" >> ' . $file . ' && ';
+		$command .= 'cat ' . $file;
+		$this->ssh->exec($command);
 	}
 
 	/**
@@ -168,36 +165,16 @@ class Docker_Demo {
 	 *
 	 * @param string $path
 	 */
-	public function createActionCronFile($path)
+	public function createActionCronFile()
 	{
-		$content = 'cd '.PATH.' && ' . COMMAND_DOWN . "\n";
-		$content .= 'crontab -u '.USER_NAME.' -l | grep -v \'sh '.PATH.'/stop-docker.sh\'  | crontab -u '.USER_NAME.' -' . "\n";
+		// $content = 'cd '.PATH.' && ' . COMMAND_DOWN . "\n";
+		// $content .= 'crontab -u '.USER_NAME.' -l | grep -v \'sh '.PATH.'/stop-docker.sh\'  | crontab -u '.USER_NAME.' -' . "\n";
 
-		$this->save_file( $path, 'stop-docker.sh', $content );
-	}
-
-	/**
-	 * Save File
-	 *
-	 * @param $path
-	 * @param $file
-	 * @param $content
-	 *
-	 * @return bool
-	 */
-	public function save_file( $path, $file, $content ) {
-		// if ( $this->check_dir( $path ) ) {
-		// 	if ( file_exists( $file ) ) {
-		// 		unlink( $file );
-		// 	}
-		$fp = fopen( $file, 'w+' );
-		fwrite( $fp, $content );
-		fclose( $fp );
-
-		return true;
-		// }
-
-		// return false;
+		$file = $this->path . '/' . 'stop-docker.sh';
+		$command = 'echo "cd ' . $this->path . ' && '. $this->command_down .'" >> ' . $file . ' && ';
+		$command .= 'echo "crontab -u ' . $this->username . ' -l | grep -v \'sh ' . $this->path . '/stop-docker.sh\' | crontab -u '.$this->username.' -" >> ' . $file . ' && ';
+		$command .= 'cat ' . $file;
+		$this->ssh->exec($command);
 	}
 
 	/**
